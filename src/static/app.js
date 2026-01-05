@@ -1,4 +1,20 @@
 document.addEventListener("DOMContentLoaded", () => {
+    // Check session status on page load
+    async function checkSession() {
+      try {
+        const response = await fetch("/session", { credentials: "include" });
+        if (response.ok) {
+          const result = await response.json();
+          currentUser = { username: result.username, role: result.role };
+        } else {
+          currentUser = null;
+        }
+      } catch (error) {
+        currentUser = null;
+      }
+      updateUIForUser();
+    }
+    checkSession();
   const activitiesList = document.getElementById("activities-list");
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
@@ -21,14 +37,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   closeModal.addEventListener("click", () => {
-    loginModal.style.display = "none";
     loginModal.classList.add("hidden");
+    loginModal.style.display = "none";
   });
 
   window.addEventListener("click", (event) => {
     if (event.target === loginModal) {
-      loginModal.style.display = "none";
       loginModal.classList.add("hidden");
+      loginModal.style.display = "none";
     }
   });
 
@@ -47,6 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch("/login", {
         method: "POST",
         body: formData,
+        credentials: "include"
       });
 
       const result = await response.json();
@@ -54,8 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response.ok) {
         currentUser = { username, role: result.role };
         updateUIForUser();
-        loginModal.style.display = "none";
         loginModal.classList.add("hidden");
+        loginModal.style.display = "none";
         loginForm.reset();
         loginMessage.classList.add("hidden");
       } else {
@@ -76,6 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch("/logout", {
         method: "POST",
+        credentials: "include"
       });
 
       if (response.ok) {
