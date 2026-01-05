@@ -29,10 +29,13 @@ header h1 {
   margin-bottom: 10px;
 }
 
-#login-btn, #logout-btn {
+.auth-container {
   position: absolute;
   top: 20px;
   right: 20px;
+}
+
+#login-btn, #logout-btn {
   background-color: #fff;
   color: #1a237e;
   padding: 8px 16px;
@@ -47,9 +50,6 @@ header h1 {
 }
 
 #user-info {
-  position: absolute;
-  top: 20px;
-  right: 20px;
   color: white;
   display: flex;
   align-items: center;
