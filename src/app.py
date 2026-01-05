@@ -5,14 +5,91 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response, status, Depends, Form
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
+from typing import Optional
+import secrets
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
 from pathlib import Path
 
+
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
+
+# Allow CORS for local frontend testing
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# In-memory user database: username -> {password, role}
+users = {
+    "admin": {"password": "adminpass", "role": "admin"},
+    "counsellor": {"password": "counsellorpass", "role": "counsellor"},
+    "student1": {"password": "studentpass", "role": "student"},
+    "student2": {"password": "studentpass", "role": "student"}
+}
+
+# In-memory session store: session_token -> username
+sessions = {}
+
+def get_current_user(request: Request) -> Optional[dict]:
+    token = request.cookies.get("session_token")
+    if token and token in sessions:
+        username = sessions[token]
+        user = users.get(username)
+        if user:
+            return {"username": username, "role": user["role"]}
+    return None
+@app.post("/login")
+async def login(response: Response, username: str = Form(...), password: str = Form(...)):
+    user = users.get(username)
+    if not user or user["password"] != password:
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Invalid credentials"})
+    # Create a session token
+    session_token = secrets.token_urlsafe(32)
+    sessions[session_token] = username
+    response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="lax")
+    return {"message": f"Logged in as {username}", "role": user["role"]}
+
+@app.post("/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("session_token")
+    if token and token in sessions:
+        del sessions[token]
+    response.delete_cookie("session_token")
+    return {"message": "Logged out"}
+
+# Dependency for protected endpoints
+def require_role(role: str):
+    def dependency(request: Request):
+        user = get_current_user(request)
+        if not user or user["role"] != role:
+            raise HTTPException(status_code=403, detail="Forbidden: Insufficient role")
+        return user
+    return dependency
+
+# Example protected endpoint (admin only)
+@app.get("/admin/ping")
+def admin_ping(user=Depends(require_role("admin"))):
+    return {"message": f"Hello, {user['username']}! You are an admin."}
+
+# Example protected endpoint (counsellor only)
+@app.get("/counsellor/ping")
+def counsellor_ping(user=Depends(require_role("counsellor"))):
+    return {"message": f"Hello, {user['username']}! You are a counsellor."}
+
+# Example protected endpoint (student only)
+@app.get("/student/ping")
+def student_ping(user=Depends(require_role("student"))):
+    return {"message": f"Hello, {user['username']}! You are a student."}
 
 # Mount the static files directory
 current_dir = Path(__file__).parent
